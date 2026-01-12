@@ -3,511 +3,347 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>画一只猫并让它动起来</title>
+    <title>EarTraining.io</title>
+    <!-- 引入 Tone.js 用于音频生成 -->
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/tone/14.8.49/Tone.js"></script>
     <style>
         :root {
-            --primary-color: #ff9a9e;
-            --bg-color: #fdfbf7;
+            --primary: #4f46e5;
+            --bg: #f3f4f6;
+            --white-key-w: 24px;
+            --white-key-h: 120px;
+            --black-key-w: 14px;
+            --black-key-h: 70px;
         }
 
-        body {
-            font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
-            background-color: var(--bg-color);
+        body { font-family: 'Segoe UI', sans-serif; margin: 0; background: var(--bg); display: flex; flex-direction: column; height: 100vh; overflow: hidden; }
+        
+        /* 视图切换控制 */
+        .screen { display: none; flex-direction: column; align-items: center; justify-content: center; height: 100%; width: 100%; position: absolute; top: 0; left: 0; background: var(--bg); transition: opacity 0.3s; }
+        .screen.active { display: flex; }
+
+        h1 { color: #1f2937; margin-bottom: 2rem; }
+        
+        /* 通用按钮 */
+        .btn {
+            padding: 12px 24px; margin: 10px; border: none; border-radius: 8px;
+            font-size: 1rem; cursor: pointer; transition: 0.2s;
+            background: white; color: #333; box-shadow: 0 2px 5px rgba(0,0,0,0.1);
+        }
+        .btn:hover { transform: translateY(-2px); box-shadow: 0 4px 8px rgba(0,0,0,0.15); }
+        .btn-primary { background: var(--primary); color: white; }
+
+        /* 键盘容器 - 支持横向滚动 */
+        .piano-wrapper {
+            width: 100%;
+            overflow-x: auto;
+            padding: 20px 0;
+            background: #e5e7eb;
+            display: flex;
+            justify-content: center; /* 默认居中，如果太宽则靠左 */
+        }
+        
+        .piano {
+            position: relative;
+            height: var(--white-key-h);
+            user-select: none;
+            display: flex;
+            margin: 0 auto;
+        }
+
+        /* 白键 */
+        .key.white {
+            width: var(--white-key-w);
+            height: var(--white-key-h);
+            background: white;
+            border: 1px solid #ccc;
+            border-radius: 0 0 4px 4px;
+            z-index: 1;
             display: flex;
             flex-direction: column;
+            justify-content: flex-end;
             align-items: center;
-            margin: 0;
-            padding: 20px;
-            color: #333;
-        }
-
-        h1 {
-            color: #4a4a4a;
-            margin-bottom: 10px;
-        }
-
-        p {
-            color: #666;
-            margin-bottom: 20px;
-        }
-
-        /* --- 绘画区域 --- */
-        #drawing-container {
+            font-size: 10px;
+            color: #999;
+            padding-bottom: 4px;
             position: relative;
-            width: 600px;
-            height: 400px;
-            border: 2px dashed #ccc;
-            background-color: #fff;
-            border-radius: 10px;
-            box-shadow: 0 4px 6px rgba(0,0,0,0.05);
-            margin-bottom: 20px;
-            overflow: hidden;
-            /* 禁止触摸时的默认滚动，方便绘图 */
-            touch-action: none; 
         }
+        
+        /* 白键标签 */
+        .key.white .label-main { font-weight: bold; color: #333; margin-bottom: 2px; }
+        .key.white .label-sub { font-size: 8px; color: #888; }
 
-        /* 画布通用样式 */
-        .paint-canvas {
-            position: absolute;
-            cursor: crosshair;
-            z-index: 5; /* 绘画层 */
-        }
-
-        /* 轮廓覆盖层 (用于显示边框给用户看) */
-        #outline-overlay {
-            position: absolute;
+        /* 黑键 */
+        .key.black {
+            width: var(--black-key-w);
+            height: var(--black-key-h);
+            background: #1f2937;
+            border-radius: 0 0 4px 4px;
+            z-index: 2;
+            position: absolute; /* 绝对定位，通过JS计算 left */
             top: 0;
-            left: 0;
-            width: 100%;
-            height: 100%;
-            pointer-events: none; /* 让鼠标事件穿透到画布 */
-            z-index: 10;
         }
 
-        /* --- 控制面板 --- */
-        .controls {
-            display: flex;
-            gap: 15px;
-            margin-bottom: 30px;
-            background: #fff;
-            padding: 10px 20px;
-            border-radius: 50px;
-            box-shadow: 0 2px 10px rgba(0,0,0,0.1);
-        }
+        /* 选中状态 */
+        .key.selected { background: #93c5fd !important; border-color: #60a5fa; }
+        .key.black.selected { background: #3b82f6 !important; }
 
-        button {
-            padding: 10px 20px;
-            border: none;
-            border-radius: 20px;
-            cursor: pointer;
-            font-weight: bold;
-            transition: transform 0.1s, background 0.2s;
-        }
+        /* 练习界面 */
+        .controls { margin-top: 20px; text-align: center; }
+        .feedback { height: 20px; margin-top: 10px; font-weight: bold; }
+        .feedback.correct { color: green; }
+        .feedback.wrong { color: red; }
 
-        button:hover {
-            transform: scale(1.05);
-        }
-
-        .btn-submit {
-            background-color: #4CAF50;
-            color: white;
-        }
-
-        .btn-clear {
-            background-color: #ff5252;
-            color: white;
-        }
-
-        input[type="color"] {
-            border: none;
-            width: 40px;
-            height: 40px;
-            cursor: pointer;
-            background: none;
-        }
-
-        input[type="range"] {
-            vertical-align: middle;
-        }
-
-        /* --- 展示区域 (动画舞台) --- */
-        #stage-container {
-            width: 100%;
-            height: 300px;
-            border-top: 2px solid #eee;
-            background: linear-gradient(to bottom, #e0f7fa 0%, #81d4fa 100%); /* 简单的天空/地面背景 */
-            position: relative;
-            overflow: hidden;
-            display: none; /* 初始隐藏 */
-        }
-
-        .ground {
-            position: absolute;
-            bottom: 0;
-            width: 100%;
-            height: 50px;
-            background-color: #8d6e63;
-        }
-
-        /* 组装后的猫 */
-        #animated-cat {
-            position: absolute;
-            bottom: 40px; /* 站在地上 */
-            left: 50%;
-            width: 300px; /* 缩放后的尺寸 */
-            height: 200px;
-            transform-style: preserve-3d;
-        }
-
-        .cat-part-img {
-            position: absolute;
-            /* 居中放置图片，根据实际生成的位置调整 */
-        }
-
-        /* 动画关键帧 */
-        
-        /* 1. 整体左右移动 */
-        @keyframes walk-across {
-            0% { left: -300px; transform: scaleX(1); } /* 从左边进 */
-            45% { left: 40%; transform: scaleX(1); }
-            50% { left: 40%; transform: scaleX(-1); } /* 转身 */
-            95% { left: -300px; transform: scaleX(-1); } /* 走回去 */
-            100% { left: -300px; transform: scaleX(1); }
-        }
-
-        /* 2. 身体上下起伏 (模拟走路颠簸) */
-        @keyframes body-bob {
-            0%, 100% { transform: translateY(0); }
-            50% { transform: translateY(-5px); }
-        }
-
-        /* 3. 腿部摆动 */
-        @keyframes leg-swing-front {
-            0% { transform: rotate(-20deg); }
-            50% { transform: rotate(20deg); }
-            100% { transform: rotate(-20deg); }
-        }
-
-        @keyframes leg-swing-back {
-            0% { transform: rotate(20deg); }
-            50% { transform: rotate(-20deg); }
-            100% { transform: rotate(20deg); }
-        }
-        
-        @keyframes tail-wag {
-            0% { transform: rotate(0deg); }
-            50% { transform: rotate(10deg); }
-            100% { transform: rotate(0deg); }
-        }
-
-        /* 动画类 */
-        .walking {
-            animation: walk-across 10s linear infinite;
-        }
-        
-        .bobbing {
-            animation: body-bob 0.6s ease-in-out infinite;
-        }
-
-        .swing-1 { animation: leg-swing-front 0.6s ease-in-out infinite; }
-        .swing-2 { animation: leg-swing-back 0.6s ease-in-out infinite; }
+        /* 提示条 */
+        .info-bar { margin-bottom: 10px; color: #666; font-size: 0.9rem; }
     </style>
 </head>
 <body>
 
-    <h1>🐱 绘制你的猫咪 🐱</h1>
-    <p>在下方的轮廓内涂色，画完点击“生成动画”！</p>
-
-    <!-- 工具栏 -->
-    <div class="controls">
-        <div>
-            <label>颜色: </label>
-            <input type="color" id="color-picker" value="#ff9a9e">
-        </div>
-        <div>
-            <label>笔刷大小: </label>
-            <input type="range" id="brush-size" min="2" max="20" value="10">
-        </div>
-        <button class="btn-clear" onclick="clearCanvas()">清空重画</button>
-        <button class="btn-submit" onclick="submitDrawing()">✨ 生成动画 ✨</button>
+    <!-- 1. 首页 -->
+    <div id="home-screen" class="screen active">
+        <h1>EarTraining.io</h1>
+        <button class="btn btn-primary" onclick="goToSelection()">听音练耳</button>
+        <button class="btn" onclick="alert('历史记录功能待后端接入')">历史记录</button>
     </div>
 
-    <!-- 绘画区：包含多个Canvas (分层) -->
-    <div id="drawing-container">
-        <!-- 
-           为了方便动画，我们将猫拆分为：
-           1. 后腿左 (Back Left)
-           2. 后腿右 (Back Right)
-           3. 前腿左 (Front Left)
-           4. 前腿右 (Front Right)
-           5. 身体+头+尾 (Body)
-           
-           注意 z-index 顺序：远的腿在下，身体在中，近的腿在上。
-        -->
+    <!-- 2. 音域选择页 -->
+    <div id="selection-screen" class="screen">
+        <h2>选择音域范围</h2>
+        <div class="info-bar">点击选择/取消，长按拖动可批量选择</div>
         
-        <!-- ID定义: canvas-{part} -->
-        <!-- 坐标和大小是根据设计好的猫形状硬编码的 -->
-        
-        <canvas id="c-leg-bl" class="paint-canvas"></canvas>
-        <canvas id="c-leg-br" class="paint-canvas"></canvas>
-        <canvas id="c-body"   class="paint-canvas"></canvas>
-        <canvas id="c-leg-fl" class="paint-canvas"></canvas>
-        <canvas id="c-leg-fr" class="paint-canvas"></canvas>
+        <div class="piano-wrapper">
+            <div id="piano-selector" class="piano">
+                <!-- 琴键将通过 JS 生成 -->
+            </div>
+        </div>
 
-        <!-- SVG 轮廓层：盖在最上面，只显示线条，不可交互 -->
-        <svg id="outline-overlay" viewBox="0 0 600 400">
-            <style>
-                .cat-outline { fill: none; stroke: #333; stroke-width: 3px; stroke-linecap: round; stroke-linejoin: round; }
-            </style>
-            <!-- 这里使用 JavaScript 动态绘制路径，以确保 Canvas 裁剪路径和 SVG 显示路径完全一致 -->
-        </svg>
-    </div>
-
-    <!-- 动画展示区 -->
-    <div id="stage-container">
-        <div class="ground"></div>
-        <div id="animated-cat">
-            <!-- 图片将通过 JS 插入到这里 -->
+        <div style="margin-top: 20px;">
+            <button class="btn" onclick="showScreen('home-screen')">返回</button>
+            <button class="btn btn-primary" onclick="startTraining()">确认开始</button>
         </div>
     </div>
 
-    <script>
-        // --- 1. 配置猫的形状数据 ---
-        // 我们使用 Canvas Path 命令风格的数组来定义形状
-        
-        // 身体 (包含头、躯干、尾巴)
-        // 假设画布 600x400. 
-        // 身体中心大约在 300, 200
-        const SHAPES = {
-            body: [
-                {op: 'beginPath'},
-                {op: 'moveTo', args: [150, 250]}, // 屁股下
-                {op: 'bezierCurveTo', args: [130, 150, 180, 120, 250, 130]}, // 背部
-                {op: 'lineTo', args: [400, 130]}, // 脖子
-                // 头
-                {op: 'quadraticCurveTo', args: [420, 80, 450, 80]}, // 左耳根
-                {op: 'lineTo', args: [440, 40]}, // 左耳尖
-                {op: 'lineTo', args: [470, 70]}, // 头顶左
-                {op: 'lineTo', args: [500, 70]}, // 头顶右
-                {op: 'lineTo', args: [530, 40]}, // 右耳尖
-                {op: 'lineTo', args: [520, 80]}, // 右耳根
-                {op: 'quadraticCurveTo', args: [560, 100, 550, 150]}, // 脸右
-                {op: 'quadraticCurveTo', args: [540, 200, 480, 200]}, // 下巴
-                {op: 'lineTo', args: [420, 220]}, // 胸
-                {op: 'quadraticCurveTo', args: [300, 280, 150, 250]}, // 肚子闭合
-                // 尾巴 (画个粗尾巴)
-                {op: 'moveTo', args: [150, 200]},
-                {op: 'bezierCurveTo', args: [100, 200, 50, 100, 80, 80]},
-                {op: 'bezierCurveTo', args: [100, 70, 130, 150, 160, 180]},
-            ],
-            // 四肢：简单的圆角矩形路径
-            legBL: generateLegPath(180, 230, 40, 100, -10), // 后左
-            legBR: generateLegPath(220, 230, 40, 100, 5),   // 后右
-            legFL: generateLegPath(400, 210, 35, 110, -5),  // 前左
-            legFR: generateLegPath(440, 210, 35, 110, 10)   // 前右
-        };
+    <!-- 3. 练习页 -->
+    <div id="training-screen" class="screen">
+        <h2>听音辨音</h2>
+        <div class="controls">
+            <button class="btn btn-primary" onclick="playCurrentQuestion()">🔊 播放/重播</button>
+        </div>
+        <div id="feedback-msg" class="feedback"></div>
+        <p class="info-bar">请在下方键盘上点击听到的音</p>
 
-        // 辅助函数：生成腿部路径
-        function generateLegPath(x, y, w, h, angle) {
-            // 这里我们只返回指令，具体绘制时我们会应用旋转
-            // 为简单起见，我们直接定义绝对坐标的路径
-            // 一个胶囊形状
-            return [
-                {op: 'beginPath'},
-                {op: 'moveTo', args: [x, y]}, 
-                {op: 'lineTo', args: [x + w, y]},
-                {op: 'lineTo', args: [x + w - 10, y + h]}, // 稍微收窄
-                {op: 'quadraticCurveTo', args: [x + w/2, y + h + 15, x + 10, y + h]}, // 脚底
-                {op: 'lineTo', args: [x, y]},
-                {op: 'closePath'}
-            ];
+        <div class="piano-wrapper">
+            <div id="piano-practice" class="piano">
+                <!-- 复用生成逻辑，生成练习键盘 -->
+            </div>
+        </div>
+        
+        <div style="margin-top: 20px;">
+            <button class="btn" onclick="showScreen('selection-screen')">重新选择范围</button>
+            <button class="btn" onclick="showScreen('home-screen')">返回首页</button>
+        </div>
+    </div>
+
+<script>
+    // --- 全局配置与状态 ---
+    // MIDI 21 (A0) 到 108 (C8) 是标准88键
+    const START_MIDI = 21; 
+    const END_MIDI = 108;
+    const NOTE_NAMES = ['C', 'C#', 'D', 'D#', 'E', 'F', 'F#', 'G', 'G#', 'A', 'A#', 'B'];
+    const SOLFEGE = {'C':'Do', 'D':'Re', 'E':'Mi', 'F':'Fa', 'G':'Sol', 'A':'La', 'B':'Si'};
+    
+    let synth; // Tone.js 合成器
+    let selectedNotes = new Set(); // 存储用户选择的 MIDI 音高
+    let currentTargetMidi = null; // 当前题目的音
+    let isDragging = false;
+    let dragAction = null; // 'add' or 'remove'
+    
+    // 初始化 Tone.js 合成器
+    async function initAudio() {
+        if (!synth) {
+            await Tone.start();
+            synth = new Tone.PolySynth(Tone.Synth).toDestination();
+            synth.set({ oscillator: { type: "triangle" }, envelope: { attack: 0.02, release: 1 } });
         }
+    }
 
-        // --- 2. 初始化画布 ---
-        
-        const canvasMap = {
-            'c-body': SHAPES.body,
-            'c-leg-bl': SHAPES.legBL,
-            'c-leg-br': SHAPES.legBR,
-            'c-leg-fl': SHAPES.legFL,
-            'c-leg-fr': SHAPES.legFR
-        };
+    // --- 核心功能：生成键盘 ---
+    function generatePiano(containerId, isPracticeMode = false) {
+        const container = document.getElementById(containerId);
+        container.innerHTML = '';
+        let whiteKeyCount = 0;
 
-        const canvases = [];
-        const container = document.getElementById('drawing-container');
-        const svgOverlay = document.getElementById('outline-overlay');
+        for (let midi = START_MIDI; midi <= END_MIDI; midi++) {
+            const noteIndex = midi % 12;
+            const octave = Math.floor(midi / 12) - 1;
+            const noteName = NOTE_NAMES[noteIndex];
+            const isBlack = noteName.includes('#');
+            const noteFull = noteName + octave;
 
-        // 设置所有 Canvas 的大小和裁剪区域
-        for (let [id, pathCmds] of Object.entries(canvasMap)) {
-            const canvas = document.getElementById(id);
-            canvas.width = 600;
-            canvas.height = 400;
-            canvases.push(canvas);
-
-            const ctx = canvas.getContext('2d');
+            const key = document.createElement('div');
+            key.dataset.midi = midi;
+            key.dataset.note = noteFull;
             
-            // 1. 定义裁剪路径 (Clip Path)
-            // 只有在这个路径内的绘画才会显示
-            executePath(ctx, pathCmds);
-            ctx.clip(); 
-
-            // 2. 在 SVG 层绘制对应的轮廓 (让用户看得到边界)
-            drawSvgPath(pathCmds);
-        }
-
-        // 执行 Canvas 路径命令
-        function executePath(ctx, cmds) {
-            cmds.forEach(cmd => {
-                if (ctx[cmd.op]) {
-                    ctx[cmd.op].apply(ctx, cmd.args || []);
+            // 样式处理
+            if (isBlack) {
+                key.className = 'key black';
+                // 计算黑键位置：位于前一个白键的右侧偏左位置
+                // 这里做一个简单的近似定位，标准钢琴更复杂
+                let leftOffset = (whiteKeyCount * 24) - 7; // 24是白键宽，7是黑键宽一半
+                key.style.left = leftOffset + 'px';
+            } else {
+                key.className = 'key white';
+                // 添加标签 (仅白键)
+                if (!isPracticeMode) { // 练习模式也可以显示标签，看需求，这里默认都显示
+                   // 顶部显示 A-G
+                   const mainLabel = document.createElement('span');
+                   mainLabel.className = 'label-main';
+                   mainLabel.innerText = noteName;
+                   // 底部显示 Do-Si
+                   const subLabel = document.createElement('span');
+                   subLabel.className = 'label-sub';
+                   subLabel.innerText = SOLFEGE[noteName] || '';
+                   key.appendChild(subLabel);
+                   key.appendChild(mainLabel);
                 }
-            });
+                whiteKeyCount++;
+            }
+
+            // --- 交互事件绑定 ---
+            if (!isPracticeMode) {
+                // 选择模式：支持点击和拖拽
+                key.addEventListener('mousedown', (e) => startDrag(midi, e));
+                key.addEventListener('mouseenter', () => handleDrag(midi));
+            } else {
+                // 练习模式：点击回答
+                key.addEventListener('mousedown', () => submitAnswer(midi));
+            }
+
+            container.appendChild(key);
         }
-
-        // 将 Canvas 命令转换为 SVG d 属性字符串并添加到 Overlay
-        function drawSvgPath(cmds) {
-            let d = '';
-            cmds.forEach(cmd => {
-                if (cmd.op === 'beginPath') d += ''; 
-                else if (cmd.op === 'moveTo') d += `M ${cmd.args[0]} ${cmd.args[1]} `;
-                else if (cmd.op === 'lineTo') d += `L ${cmd.args[0]} ${cmd.args[1]} `;
-                else if (cmd.op === 'quadraticCurveTo') d += `Q ${cmd.args[0]} ${cmd.args[1]}, ${cmd.args[2]} ${cmd.args[3]} `;
-                else if (cmd.op === 'bezierCurveTo') d += `C ${cmd.args[0]} ${cmd.args[1]}, ${cmd.args[2]} ${cmd.args[3]}, ${cmd.args[4]} ${cmd.args[5]} `;
-                else if (cmd.op === 'closePath') d += 'Z ';
-            });
-            
-            const path = document.createElementNS("http://www.w3.org/2000/svg", "path");
-            path.setAttribute("d", d);
-            path.setAttribute("class", "cat-outline");
-            svgOverlay.appendChild(path);
-        }
-
-
-        // --- 3. 绘画逻辑 ---
         
-        let isDrawing = false;
-        let lastX = 0;
-        let lastY = 0;
-        const colorPicker = document.getElementById('color-picker');
-        const brushSize = document.getElementById('brush-size');
+        // 设置容器总宽度，保证黑键能相对于容器定位
+        container.style.width = (whiteKeyCount * 24) + 'px';
+    }
 
-        // 为整个容器绑定事件，而不是单个Canvas，这样画笔可以跨越肢体流畅绘制
-        container.addEventListener('mousedown', startDrawing);
-        container.addEventListener('mousemove', draw);
-        container.addEventListener('mouseup', stopDrawing);
-        container.addEventListener('mouseout', stopDrawing);
+    // --- 选择页逻辑：拖拽选择 ---
+    function startDrag(midi, e) {
+        e.preventDefault(); // 防止文字选中
+        isDragging = true;
+        // 决定当前拖拽是“选中”还是“取消选中”：取决于第一个点击的键的状态
+        const alreadySelected = selectedNotes.has(midi);
+        dragAction = alreadySelected ? 'remove' : 'add';
+        toggleSelection(midi, dragAction);
+    }
+
+    function handleDrag(midi) {
+        if (isDragging) {
+            toggleSelection(midi, dragAction);
+        }
+    }
+
+    function endDrag() {
+        isDragging = false;
+        dragAction = null;
+    }
+
+    // 切换单个键的选中状态
+    function toggleSelection(midi, action) {
+        const keyEl = document.querySelector(`#piano-selector .key[data-midi="${midi}"]`);
         
-        // 触摸支持
-        container.addEventListener('touchstart', (e) => {
-            e.preventDefault(); 
-            startDrawing(e.touches[0]);
+        if (action === 'add') {
+            if (!selectedNotes.has(midi)) {
+                selectedNotes.add(midi);
+                keyEl.classList.add('selected');
+                playNote(midi); // 播放音效反馈
+            }
+        } else {
+            if (selectedNotes.has(midi)) {
+                selectedNotes.delete(midi);
+                keyEl.classList.remove('selected');
+            }
+        }
+    }
+
+    // 全局鼠标松开监听 (处理拖拽结束)
+    window.addEventListener('mouseup', endDrag);
+
+    // --- 练习页逻辑 ---
+    function startTraining() {
+        if (selectedNotes.size < 2) {
+            alert("请至少选择 2 个音符进行练习！");
+            return;
+        }
+        // 初始化练习键盘
+        generatePiano('piano-practice', true); // 生成练习用的键盘
+        showScreen('training-screen');
+        nextQuestion();
+    }
+
+    function nextQuestion() {
+        // 从 Set 转换 Array，随机取一个
+        const notesArray = Array.from(selectedNotes);
+        const randomIndex = Math.floor(Math.random() * notesArray.length);
+        currentTargetMidi = notesArray[randomIndex];
+        
+        document.getElementById('feedback-msg').innerText = '';
+        setTimeout(() => playCurrentQuestion(), 500);
+    }
+
+    function playCurrentQuestion() {
+        if (currentTargetMidi && synth) {
+            const noteName = Tone.Frequency(currentTargetMidi, "midi").toNote();
+            synth.triggerAttackRelease(noteName, "8n");
+        }
+    }
+
+    // 播放任意音（用于选择时的反馈）
+    function playNote(midi) {
+        if (synth) {
+            const noteName = Tone.Frequency(midi, "midi").toNote();
+            synth.triggerAttackRelease(noteName, "16n");
+        }
+    }
+
+    function submitAnswer(userMidi) {
+        // 只能点击在选定范围内的音
+        if (!selectedNotes.has(userMidi)) return; 
+
+        playNote(userMidi); // 播放用户点的音
+
+        const feedbackEl = document.getElementById('feedback-msg');
+        if (userMidi === currentTargetMidi) {
+            feedbackEl.innerText = "正确！🎉";
+            feedbackEl.className = "feedback correct";
+            // TODO: 这里将来要发送 Ajax 给后端记录成功
+            console.log(`Log: Correct identify ${userMidi}`);
+            setTimeout(nextQuestion, 1000); // 1秒后下一题
+        } else {
+            feedbackEl.innerText = "错误，请重试。";
+            feedbackEl.className = "feedback wrong";
+            // TODO: 这里将来要发送 Ajax 给后端记录失败 (Fa/La 混淆逻辑在此处记录)
+            console.log(`Log: Mistook ${currentTargetMidi} for ${userMidi}`);
+        }
+    }
+
+    // --- 视图路由 ---
+    function showScreen(id) {
+        document.querySelectorAll('.screen').forEach(s => s.classList.remove('active'));
+        document.getElementById(id).classList.add('active');
+    }
+
+    async function goToSelection() {
+        await initAudio(); // 用户点击后初始化音频上下文
+        generatePiano('piano-selector');
+        // 恢复之前的选择 (如果有)
+        selectedNotes.forEach(midi => {
+            const el = document.querySelector(`#piano-selector .key[data-midi="${midi}"]`);
+            if(el) el.classList.add('selected');
         });
-        container.addEventListener('touchmove', (e) => {
-            e.preventDefault();
-            draw(e.touches[0]);
-        });
-        container.addEventListener('touchend', stopDrawing);
+        showScreen('selection-screen');
+    }
 
-        function getMousePos(evt) {
-            const rect = container.getBoundingClientRect();
-            return {
-                x: evt.clientX - rect.left,
-                y: evt.clientY - rect.top
-            };
-        }
-
-        function startDrawing(e) {
-            isDrawing = true;
-            const pos = getMousePos(e);
-            lastX = pos.x;
-            lastY = pos.y;
-            draw(e); // 点击即画一点
-        }
-
-        function draw(e) {
-            if (!isDrawing) return;
-            const pos = getMousePos(e);
-            
-            // 我们需要在所有 Canvas 上同时绘画吗？
-            // 是的，因为用户看到的猫是一个整体。如果鼠标划过连接处，两个Canvas都应该有笔迹。
-            // 由于设置了 ctx.clip()，在错误的 Canvas 上绘画会被自动裁掉，所以我们可以安全地对所有 Canvas 循环绘制。
-            
-            canvases.forEach(canvas => {
-                const ctx = canvas.getContext('2d');
-                ctx.beginPath();
-                ctx.moveTo(lastX, lastY);
-                ctx.lineTo(pos.x, pos.y);
-                ctx.strokeStyle = colorPicker.value;
-                ctx.lineWidth = brushSize.value;
-                ctx.lineCap = 'round';
-                ctx.lineJoin = 'round';
-                ctx.stroke();
-            });
-
-            lastX = pos.x;
-            lastY = pos.y;
-        }
-
-        function stopDrawing() {
-            isDrawing = false;
-        }
-
-        function clearCanvas() {
-            canvases.forEach(canvas => {
-                const ctx = canvas.getContext('2d');
-                ctx.clearRect(0, 0, canvas.width, canvas.height);
-                // 清除后需要重新设置 clip 吗？不需要，clip 是状态的一部分。
-                // 但是 clearRect 不受 clip 影响吗？clearRect 受 clip 影响。
-                // 实际上彻底清空最好重置状态，但这里为了简单，我们用颜色覆盖或者 save/restore 策略。
-                // 最简单的方法：重置宽/高会清空 context 状态。
-                canvas.width = 600; 
-                // 重新应用 clip
-                const id = canvas.id;
-                const pathCmds = canvasMap[id];
-                executePath(ctx, pathCmds);
-                ctx.clip();
-            });
-        }
-
-        // --- 4. 提交与动画逻辑 ---
-
-        function submitDrawing() {
-            const stage = document.getElementById('stage-container');
-            const catContainer = document.getElementById('animated-cat');
-            
-            // 清空旧的猫
-            catContainer.innerHTML = '';
-            
-            // 显示舞台
-            stage.style.display = 'block';
-            stage.scrollIntoView({ behavior: 'smooth' });
-
-            // 提取各个部分的图像
-            // 注意顺序：后腿 -> 身体 -> 前腿
-            
-            const partsConfig = [
-                { id: 'c-leg-bl', class: 'swing-1', z: 1, pivot: '200px 230px' }, // 后左
-                { id: 'c-leg-br', class: 'swing-2', z: 2, pivot: '240px 230px' }, // 后右
-                { id: 'c-body',   class: 'bobbing', z: 3, pivot: 'center' },      // 身体
-                { id: 'c-leg-fl', class: 'swing-2', z: 4, pivot: '417px 210px' }, // 前左
-                { id: 'c-leg-fr', class: 'swing-1', z: 5, pivot: '457px 210px' }  // 前右
-            ];
-
-            partsConfig.forEach(config => {
-                const canvas = document.getElementById(config.id);
-                const img = new Image();
-                img.src = canvas.toDataURL();
-                img.className = 'cat-part-img ' + config.class;
-                
-                // 样式设置
-                img.style.zIndex = config.z;
-                img.style.width = '100%'; // 对应 animated-cat 的容器大小
-                img.style.height = 'auto'; // 保持比例
-                img.style.left = '0';
-                img.style.top = '0';
-                
-                // 关键点：设置旋转中心 (Transform Origin)
-                // 我们的Canvas是 600x400。animated-cat 容器被设置为 300x200 (缩小了一半)。
-                // 所以 pivot 坐标也需要缩小一半，或者使用百分比。
-                // 这里为了简单，我们计算相对于图片的百分比。
-                
-                // 因为图片是包含大量透明像素的整张图，我们直接设置 transform-origin 对应关节位置。
-                if(config.pivot !== 'center') {
-                    // 解析原始坐标
-                    const coords = config.pivot.split(' ');
-                    const x = parseInt(coords[0]);
-                    const y = parseInt(coords[1]);
-                    // 映射到显示容器 (容器宽300，原图宽600，比例 0.5)
-                    img.style.transformOrigin = `${x * 0.5}px ${y * 0.5}px`;
-                }
-                
-                catContainer.appendChild(img);
-            });
-
-            // 启动整体移动动画
-            catContainer.classList.add('walking');
-        }
-
-    </script>
+</script>
 </body>
 </html>
