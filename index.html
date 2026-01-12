@@ -199,18 +199,16 @@
             } else {
                 key.className = 'key white';
                 // 添加标签 (仅白键)
-                if (!isPracticeMode) { // 练习模式也可以显示标签，看需求，这里默认都显示
-                   // 顶部显示 A-G
-                   const mainLabel = document.createElement('span');
-                   mainLabel.className = 'label-main';
-                   mainLabel.innerText = noteName;
-                   // 底部显示 Do-Si
-                   const subLabel = document.createElement('span');
-                   subLabel.className = 'label-sub';
-                   subLabel.innerText = SOLFEGE[noteName] || '';
-                   key.appendChild(subLabel);
-                   key.appendChild(mainLabel);
-                }
+                // 顶部显示 A-G
+                const mainLabel = document.createElement('span');
+                mainLabel.className = 'label-main';
+                mainLabel.innerText = noteName;
+                // 底部显示 Do-Si
+                const subLabel = document.createElement('span');
+                subLabel.className = 'label-sub';
+                subLabel.innerText = SOLFEGE[noteName] || '';
+                key.appendChild(subLabel);
+                key.appendChild(mainLabel);
                 whiteKeyCount++;
             }
 
