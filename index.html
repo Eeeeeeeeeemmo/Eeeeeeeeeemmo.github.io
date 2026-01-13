@@ -19,20 +19,22 @@
         .animate-fade-in {
             animation: fadeIn 0.8s ease-out forwards;
         }
-        /* Custom scrollbar for the piano */
+        /* Custom scrollbar for the piano - made chunkier for better reach */
         .piano-scrollbar::-webkit-scrollbar {
-            height: 8px;
+            height: 20px;
         }
         .piano-scrollbar::-webkit-scrollbar-track {
-            background: #f1f1f1;
-            border-radius: 4px;
+            background: #f1f5f9;
+            border-radius: 10px;
+            box-shadow: inset 0 0 5px rgba(0,0,0,0.05);
         }
         .piano-scrollbar::-webkit-scrollbar-thumb {
-            background: #3b82f6;
-            border-radius: 4px;
+            background: #94a3b8;
+            border-radius: 10px;
+            border: 4px solid #f1f5f9; /* Padding effect to make it look clean but hit area is large */
         }
         .piano-scrollbar::-webkit-scrollbar-thumb:hover {
-            background: #2563eb;
+            background: #3b82f6;
         }
         /* Prevent accidental scrolling while interacting with piano */
         .piano-no-scroll {
@@ -49,7 +51,7 @@
   }
 }
 </script>
-  <script type="module" crossorigin src="/assets/index-CGnTKlsB.js"></script>
+  <script type="module" crossorigin src="/assets/index-CKILezhW.js"></script>
 </head>
 <body class="bg-blue-50 text-slate-900 font-sans overflow-x-hidden">
     <div id="root"></div>
