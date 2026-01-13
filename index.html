@@ -19,24 +19,33 @@
         .animate-fade-in {
             animation: fadeIn 0.8s ease-out forwards;
         }
-        /* Custom scrollbar for the piano - made chunkier for better reach */
+        /* Custom scrollbar for the piano - optimized for iOS/Mobile touch */
+        .piano-scrollbar {
+            /* Force scrollbar visibility on some webkit browsers if possible */
+            -webkit-overflow-scrolling: touch;
+        }
         .piano-scrollbar::-webkit-scrollbar {
-            height: 20px;
+            height: 12px;
+        }
+        @media (min-width: 768px) {
+            .piano-scrollbar::-webkit-scrollbar {
+                height: 16px;
+            }
         }
         .piano-scrollbar::-webkit-scrollbar-track {
-            background: #f1f5f9;
+            background: #e2e8f0;
             border-radius: 10px;
-            box-shadow: inset 0 0 5px rgba(0,0,0,0.05);
+            margin: 0 20px;
         }
         .piano-scrollbar::-webkit-scrollbar-thumb {
-            background: #94a3b8;
-            border-radius: 10px;
-            border: 4px solid #f1f5f9; /* Padding effect to make it look clean but hit area is large */
-        }
-        .piano-scrollbar::-webkit-scrollbar-thumb:hover {
             background: #3b82f6;
+            border-radius: 10px;
+            border: 3px solid #e2e8f0;
         }
-        /* Prevent accidental scrolling while interacting with piano */
+        .piano-scrollbar::-webkit-scrollbar-thumb:active {
+            background: #2563eb;
+        }
+        /* Prevent accidental scrolling while interacting with piano keys */
         .piano-no-scroll {
             touch-action: none;
         }
@@ -51,7 +60,7 @@
   }
 }
 </script>
-  <script type="module" crossorigin src="/assets/index-CKILezhW.js"></script>
+  <script type="module" crossorigin src="/assets/index-CobK4EUX.js"></script>
 </head>
 <body class="bg-blue-50 text-slate-900 font-sans overflow-x-hidden">
     <div id="root"></div>
